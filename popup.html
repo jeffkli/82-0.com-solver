@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --bg: #14161c;
+    --line: #2a2e3a;
+    --text: #e8eaf0;
+    --muted: #8b91a3;
+    --accent: #2b5cff;
+    --good: #6fcf97;
+  }
+  body {
+    width: 240px;
+    margin: 0;
+    padding: 14px;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { margin: 0 0 12px; font-size: 14px; letter-spacing: 0.3px; }
+  .group { margin-bottom: 14px; }
+  .label { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 6px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg label { flex: 1; text-align: center; padding: 6px 0; cursor: pointer; color: var(--muted); }
+  .seg input { display: none; }
+  .seg input:checked + span { background: var(--accent); color: #fff; display: block; }
+  .seg span { display: block; padding: 6px 0; margin: -6px 0; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  .val { width: 30px; text-align: right; color: var(--good); font-variant-numeric: tabular-nums; }
+  button {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #1f4ae0; }
+  .status { margin-top: 8px; color: var(--muted); font-size: 11px; min-height: 14px; }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <h1>82-0 Draft Helper</h1>
+
+  <div class="group">
+    <div class="label">Scoring mode</div>
+    <div class="seg">
+      <label><input type="radio" name="mode" value="adjusted" /><span>Adjusted</span></label>
+      <label><input type="radio" name="mode" value="standard" /><span>Raw</span></label>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="label">Skip threshold</div>
+    <div class="row">
+      <input type="range" id="threshold" min="50" max="110" step="1" />
+      <span class="val" id="thresholdVal">85</span>
+    </div>
+    <div class="hint">Suggest a skip when the best pick scores below this.</div>
+  </div>
+
+  <div class="group">
+    <button id="reload">Reload player data</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

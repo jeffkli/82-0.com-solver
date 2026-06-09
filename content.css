@@ -1,0 +1,119 @@
+#draft-helper-panel {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  z-index: 2147483647;
+  background: #14161c;
+  color: #e8eaf0;
+  border: 1px solid #2a2e3a;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
+
+#draft-helper-panel .dh-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #1b1f29;
+  cursor: move;
+  user-select: none;
+}
+
+#draft-helper-panel .dh-title {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+#draft-helper-panel .dh-head button {
+  background: none;
+  border: none;
+  color: #8b91a3;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+#draft-helper-panel .dh-head button:hover { color: #fff; }
+
+#draft-helper-panel .dh-body { padding: 12px; }
+
+#draft-helper-panel.dh-collapsed .dh-body { display: none; }
+
+#draft-helper-panel .dh-roll {
+  font-size: 12px;
+  color: #9aa0b3;
+  margin-bottom: 10px;
+}
+#draft-helper-panel .dh-roll b { color: #f2c14e; }
+
+#draft-helper-panel .dh-skip {
+  margin: 8px 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #3a2417;
+  color: #f0a868;
+  font-size: 12px;
+}
+
+#draft-helper-panel .dh-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #23262f;
+}
+
+#draft-helper-panel .dh-pick:first-child { border-top: none; }
+#draft-helper-panel .dh-pick .dh-name { font-weight: 600; }
+#draft-helper-panel .dh-pick .dh-meta { color: #8b91a3; font-size: 11px; }
+#draft-helper-panel .dh-pick .dh-num { text-align: right; }
+#draft-helper-panel .dh-pick .dh-num .dh-ovr { color: #6fcf97; font-weight: 600; }
+
+#draft-helper-panel .dh-pick button.dh-add {
+  background: #2b5cff;
+  border: none;
+  color: #fff;
+  border-radius: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+#draft-helper-panel .dh-pick button.dh-add:hover { background: #1f4ae0; }
+
+#draft-helper-panel .dh-roster {
+  margin-top: 12px;
+  border-top: 1px solid #23262f;
+  padding-top: 8px;
+}
+#draft-helper-panel .dh-roster h4 { margin: 0 0 6px; font-size: 11px; color: #9aa0b3; text-transform: uppercase; }
+#draft-helper-panel .dh-slot { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+#draft-helper-panel .dh-slot .dh-empty { color: #555b6b; }
+#draft-helper-panel .dh-slot .dh-clear { cursor: pointer; color: #6b7186; }
+
+#draft-helper-panel .dh-summary {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+#draft-helper-panel .dh-summary .dh-grade { font-weight: 700; }
+
+#draft-helper-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  background: #2b5cff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: 12px -apple-system, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}

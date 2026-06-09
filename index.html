@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>82-0 Draft Solver</title>
+<style>
+  :root {
+    --bg: #0e0f14;
+    --panel: #161922;
+    --line: #262a36;
+    --text: #e8eaf0;
+    --muted: #8b91a3;
+    --accent: #2b5cff;
+    --good: #6fcf97;
+    --gold: #f2c14e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: 0.3px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .wrap { display: flex; gap: 20px; padding: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .controls { width: 320px; }
+  .results { flex: 1; min-width: 340px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  select {
+    width: 100%;
+    background: #0f1218;
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ovr { color: var(--good); font-weight: 600; }
+  button.add {
+    background: var(--accent); color: #fff; border: none; border-radius: 5px;
+    padding: 4px 10px; cursor: pointer; font-size: 12px;
+  }
+  button.add:hover { background: #1f4ae0; }
+  .roster-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .roster-row .rm { color: var(--muted); cursor: pointer; }
+  .summary { margin-top: 14px; font-size: 16px; }
+  .summary .grade { float: right; font-weight: 700; color: var(--gold); }
+  .mode { margin-top: 8px; display: flex; gap: 14px; font-size: 13px; }
+  .mode label { display: inline; margin: 0; color: var(--text); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .src { color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>82-0 Draft Solver</h1>
+  <p>Pick a team and era, see who moves the OVR the most, and build a roster.</p>
+</header>
+
+<div class="wrap">
+  <div class="col controls">
+    <div class="mode">
+      <label><input type="radio" name="mode" value="adjusted" checked /> Adjusted</label>
+      <label><input type="radio" name="mode" value="standard" /> Standard</label>
+    </div>
+
+    <label for="team">Team</label>
+    <select id="team"></select>
+
+    <label for="era">Era</label>
+    <select id="era"></select>
+
+    <div class="col" style="margin-top:16px;padding:12px;">
+      <strong style="font-size:13px;">Your roster</strong>
+      <div id="roster"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <div class="hint">Just double-click <code>index.html</code> — the player data
+      is loaded from <code>data/players.js</code>, no server needed.</div>
+    <div class="src" id="source"></div>
+  </div>
+
+  <div class="col results">
+    <strong style="font-size:13px;">Best available for this roll</strong>
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th><th>Pos</th>
+          <th class="num">PPG</th><th class="num">RPG</th><th class="num">APG</th>
+          <th class="num">Team OVR</th><th class="num">Wins</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="data/players.js"></script>
+<script src="solver-core.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var players = [];
+  var byTeamEra = {};
+  var roster = {};      // slot -> player
+  var mode = "adjusted";
+
+  var $team = document.getElementById("team");
+  var $era = document.getElementById("era");
+  var $rows = document.getElementById("rows");
+  var $roster = document.getElementById("roster");
+  var $summary = document.getElementById("summary");
+  var $source = document.getElementById("source");
+
+  function index() {
+    byTeamEra = {};
+    var teams = {}, eras = {};
+    players.forEach(function (p) {
+      (byTeamEra[p.team + "|" + p.era] || (byTeamEra[p.team + "|" + p.era] = [])).push(p);
+      teams[p.team] = true;
+      eras[p.era] = true;
+    });
+
+    fill($team, Object.keys(teams).sort().map(function (t) {
+      return { value: t, label: (Solver.TEAM_NAMES[t] || t) + " (" + t + ")" };
+    }));
+    fill($era, Object.keys(eras).sort().map(function (e) {
+      return { value: e, label: e };
+    }));
+  }
+
+  function fill(sel, items) {
+    sel.innerHTML = items.map(function (it) {
+      return '<option value="' + it.value + '">' + it.label + "</option>";
+    }).join("");
+  }
+
+  function rosterArray() {
+    return Solver.SLOTS
+      .map(function (s) {
+        return roster[s] ? Object.assign({}, roster[s], { _slot: s }) : null;
+      })
+      .filter(Boolean);
+  }
+
+  function openPositions() {
+    return Solver.SLOTS.filter(function (s) { return !roster[s]; });
+  }
+
+  function scoreFn() {
+    return mode === "adjusted" ? Solver.calculateAdjustedOvr : Solver.calculateTeamOvr;
+  }
+
+  function renderResults() {
+    var key = $team.value + "|" + $era.value;
+    var pool = byTeamEra[key] || [];
+    var open = openPositions();
+    var ranked = Solver.rankPool(pool, open, { mode: mode });
+    var base = rosterArray();
+    var score = scoreFn();
+
+    if (ranked.length === 0) {
+      $rows.innerHTML = '<tr><td colspan="8" style="color:#8b91a3">' +
+        "No players here fit an open slot.</td></tr>";
+      return;
+    }
+
+    $rows.innerHTML = ranked.map(function (r, i) {
+      var withPick = base.concat([Object.assign({}, r.player, { _slot: r.slot })]);
+      var ovr = score(withPick);
+      var wins = Solver.projectedWins(ovr, mode === "adjusted");
+      var p = r.player;
+      return "<tr>" +
+        "<td>" + p.player + "</td>" +
+        "<td>" + r.slot + "</td>" +
+        '<td class="num">' + (p.ppg || 0).toFixed(1) + "</td>" +
+        '<td class="num">' + (p.rpg || 0).toFixed(1) + "</td>" +
+        '<td class="num">' + (p.apg || 0).toFixed(1) + "</td>" +
+        '<td class="num ovr">' + ovr.toFixed(1) + "</td>" +
+        '<td class="num">' + wins + "</td>" +
+        '<td class="num"><button class="add" data-i="' + i + '">Add</button></td>' +
+        "</tr>";
+    }).join("");
+
+    Array.prototype.forEach.call($rows.querySelectorAll(".add"), function (btn) {
+      btn.addEventListener("click", function () {
+        var r = ranked[parseInt(btn.dataset.i, 10)];
+        roster[r.slot] = r.player;
+        renderAll();
+      });
+    });
+  }
+
+  function renderRoster() {
+    $roster.innerHTML = Solver.SLOTS.map(function (s) {
+      var p = roster[s];
+      if (p) {
+        return '<div class="roster-row"><span>' + s + " · " + p.player +
+          '</span><span class="rm" data-slot="' + s + '">remove</span></div>';
+      }
+      return '<div class="roster-row" style="color:#555b6b"><span>' + s +
+        " · open</span></div>";
+    }).join("");
+
+    Array.prototype.forEach.call($roster.querySelectorAll(".rm"), function (el) {
+      el.addEventListener("click", function () {
+        delete roster[el.dataset.slot];
+        renderAll();
+      });
+    });
+
+    var ovr = scoreFn()(rosterArray());
+    var wins = Solver.projectedWins(ovr, mode === "adjusted");
+    var g = Solver.gradeForWins(wins);
+    $summary.innerHTML = "OVR " + ovr.toFixed(1) + " · " + wins + " wins" +
+      '<span class="grade">' + g.grade + " " + g.label + "</span>";
+  }
+
+  function renderAll() {
+    renderResults();
+    renderRoster();
+  }
+
+  $team.addEventListener("change", renderResults);
+  $era.addEventListener("change", renderResults);
+  Array.prototype.forEach.call(document.getElementsByName("mode"), function (r) {
+    r.addEventListener("change", function () { mode = r.value; renderAll(); });
+  });
+
+  function boot(data, src) {
+    players = data;
+    index();
+    renderAll();
+    $source.textContent = "Loaded " + players.length + " players (" + src + ").";
+  }
+
+  function start() {
+    try {
+      if (typeof Solver === "undefined") {
+        $source.textContent = "solver-core.js failed to load.";
+        return;
+      }
+      if (!Array.isArray(self.PLAYERS) || !self.PLAYERS.length) {
+        $source.textContent =
+          "data/players.js failed to load (self.PLAYERS is empty). " +
+          "Open this file in a real browser, not an in-editor preview.";
+        return;
+      }
+      boot(self.PLAYERS, "data/players.js");
+    } catch (e) {
+      $source.textContent = "Error: " + (e && e.message ? e.message : e);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
+</script>
+</body>
+</html>
