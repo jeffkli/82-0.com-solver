@@ -104,10 +104,42 @@
     return null;
   }
 
-  function detectRoll() {
-    var scope = null;
-    if (CONFIG.rollSelector) scope = document.querySelector(CONFIG.rollSelector);
-    var text = (scope || document.body).innerText || "";
+  // Page text with our own overlay stripped out, so detection never matches the
+  // helper's own recommendations or echoed roll.
+  function pageText() {
+    var text = document.body.innerText || "";
+    [panel, toggleBtn].forEach(function (el) {
+      if (el) {
+        var t = el.innerText || "";
+        if (t) text = text.split(t).join(" ");
+      }
+    });
+    return text;
+  }
+
+  // The game's start screen shows a decorative team/era before you press Spin,
+  // but the actual player pool isn't rendered yet. Treat a roll as live only
+  // once several of that pool's players are actually on the page.
+  function selectionActive(pool, text) {
+    if (!pool || !pool.length) return false;
+    var lower = (text != null ? text : pageText()).toLowerCase();
+    var hits = 0;
+    for (var i = 0; i < pool.length; i++) {
+      var name = (pool[i].player || "").toLowerCase();
+      if (name.length > 4 && lower.indexOf(name) !== -1) {
+        if (++hits >= 3) return true;
+      }
+    }
+    return false;
+  }
+
+  function detectRoll(text) {
+    if (CONFIG.rollSelector) {
+      var scope = document.querySelector(CONFIG.rollSelector);
+      text = scope ? scope.innerText || "" : "";
+    } else if (text == null) {
+      text = pageText();
+    }
 
     var era = normalizeEra(text);
 
@@ -187,7 +219,8 @@
   }
 
   function render() {
-    var roll = detectRoll();
+    var text = pageText();
+    var roll = detectRoll(text);
     var html = "";
 
     if (roll) {
@@ -196,6 +229,18 @@
         "</b> &middot; <b>" + esc(roll.era) + "</b></div>";
 
       var pool = state.byTeamEra[roll.team + "|" + roll.era] || [];
+
+      if (!selectionActive(pool, text)) {
+        html += '<div class="dh-roll">Start screen — press <b>Spin</b> to begin. ' +
+          "Not counting this as a pick.</div>";
+        html += renderRoster();
+        body.innerHTML = html;
+        body.querySelectorAll(".dh-clear").forEach(function (el) {
+          el.addEventListener("click", function () { clearSlot(el.dataset.slot); });
+        });
+        return;
+      }
+
       var open = openPositions();
       var ranked = Solver.rankPool(pool, open, { mode: CONFIG.mode });
 
@@ -315,8 +360,12 @@
     // actually changes, but always keep the roster summary current.
     clearTimeout(renderTimer);
     renderTimer = setTimeout(function () {
-      var roll = detectRoll();
-      var key = roll ? roll.team + "|" + roll.era : null;
+      var text = pageText();
+      var roll = detectRoll(text);
+      var active = roll
+        ? selectionActive(state.byTeamEra[roll.team + "|" + roll.era] || [], text)
+        : false;
+      var key = (roll ? roll.team + "|" + roll.era : "none") + "|" + active;
       if (key !== state.lastRollKey) {
         state.lastRollKey = key;
         render();
