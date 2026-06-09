@@ -31,8 +31,12 @@ the game, and a standalone `index.html` page for planning rolls by hand.
 - Drag the header to move the panel; the **–** button hides it (a small button
   brings it back).
 
-If roll detection ever misses, set `CONFIG.rollSelector` near the top of
-`content.js` to a selector for the element that shows the team/era.
+Roll detection is data-driven: it reads the decade from the page and then
+identifies the team by which team's player pool is actually on screen (the
+names match the bundled dataset exactly). It only shows picks once the real
+pool is rendered, so the pre-spin start screen is ignored. If detection ever
+misses, the `MIN_POOL_HITS` constant near the top of the detection code in
+`content.js` is the sensitivity knob.
 
 ## Popup settings
 

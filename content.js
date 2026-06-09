@@ -4,17 +4,16 @@
  * team OVR the most. The site is a Next.js app that swaps content in place, so
  * we watch the DOM with a MutationObserver instead of relying on page loads.
  *
- * The page markup isn't documented anywhere, so roll detection works by
- * scanning visible text for a decade token (e.g. "1990s") and a team name we
- * recognize from the player data. If the site ever exposes cleaner hooks,
- * drop the selectors into CONFIG.rollSelector and we'll use those first.
+ * The page markup isn't documented anywhere, so roll detection is data-driven:
+ * we read a decade token (e.g. "1990s") from the page and then figure out the
+ * team by which team's player pool is actually rendered on screen. Because the
+ * player names come from the same dataset the site uses, they match exactly.
  */
 
 (function () {
   "use strict";
 
   var CONFIG = {
-    rollSelector: null,   // optional CSS selector for the roll container
     skipThreshold: 85,    // recommend a skip if the best pick scores under this
     mode: "adjusted"      // "standard" or "adjusted"; set from the popup
   };
@@ -22,7 +21,7 @@
   var state = {
     players: [],
     byTeamEra: {},
-    teamLookup: {},       // lowercased team name/abbr -> abbr
+    poolsByEra: {},       // era -> [{ team, players }] for roll detection
     eras: [],
     roster: {},           // slot -> player
     lastRollKey: null
@@ -74,35 +73,30 @@
   function indexPlayers(players) {
     state.players = players;
     state.byTeamEra = {};
+    state.poolsByEra = {};
     var eras = {};
 
     players.forEach(function (p) {
       var key = p.team + "|" + p.era;
       (state.byTeamEra[key] || (state.byTeamEra[key] = [])).push(p);
       eras[p.era] = true;
+      p._lname = (p.player || "").toLowerCase(); // cached for page matching
+    });
 
-      var abbr = p.team;
-      state.teamLookup[abbr.toLowerCase()] = abbr;
-      var full = Solver.TEAM_NAMES[abbr];
-      if (full) state.teamLookup[full.toLowerCase()] = abbr;
+    // Group pools by era so a roll can be identified from the players on screen.
+    Object.keys(state.byTeamEra).forEach(function (key) {
+      var parts = key.split("|");
+      var era = parts[1];
+      (state.poolsByEra[era] || (state.poolsByEra[era] = [])).push({
+        team: parts[0],
+        players: state.byTeamEra[key]
+      });
     });
 
     state.eras = Object.keys(eras).sort();
   }
 
   // ---- roll detection ---------------------------------------------------
-
-  function normalizeEra(text) {
-    // matches "1990s", "90s", "1990's"
-    var m = text.match(/\b((?:19|20)\d0)\s*'?s\b/);
-    if (m) return m[1] + "s";
-    m = text.match(/\b(\d0)\s*'?s\b/);
-    if (m) {
-      var n = parseInt(m[1], 10);
-      return (n >= 60 ? "19" : "20") + m[1] + "s";
-    }
-    return null;
-  }
 
   // Page text with our own overlay stripped out, so detection never matches the
   // helper's own recommendations or echoed roll.
@@ -117,48 +111,49 @@
     return text;
   }
 
-  // The game's start screen shows a decorative team/era before you press Spin,
-  // but the actual player pool isn't rendered yet. Treat a roll as live only
-  // once several of that pool's players are actually on the page.
-  function selectionActive(pool, text) {
-    if (!pool || !pool.length) return false;
-    var lower = (text != null ? text : pageText()).toLowerCase();
-    var hits = 0;
-    for (var i = 0; i < pool.length; i++) {
-      var name = (pool[i].player || "").toLowerCase();
-      if (name.length > 4 && lower.indexOf(name) !== -1) {
-        if (++hits >= 3) return true;
-      }
+  // How many of a pool's players must appear on the page to call it the live
+  // roll. Also serves as the "selection has actually started" signal — on the
+  // pre-spin start screen no pool is rendered, so nothing crosses this bar.
+  var MIN_POOL_HITS = 3;
+
+  function erasInText(text) {
+    var found = {}, m;
+    var re = /\b((?:19|20)\d0)\s*'?s\b/g;
+    while ((m = re.exec(text))) found[m[1] + "s"] = true;
+    var re2 = /\b(\d0)\s*'?s\b/g;
+    while ((m = re2.exec(text))) {
+      var n = parseInt(m[1], 10);
+      found[(n >= 60 ? "19" : "20") + m[1] + "s"] = true;
     }
-    return false;
+    return Object.keys(found);
   }
 
+  // Identify the current roll from the players actually rendered on the page.
+  // Every selectable player in a roll shares one team+era, so the pool with the
+  // most name matches IS the roll. This avoids latching onto stale team names
+  // left elsewhere on the page after earlier picks (the second-roll bug).
   function detectRoll(text) {
-    if (CONFIG.rollSelector) {
-      var scope = document.querySelector(CONFIG.rollSelector);
-      text = scope ? scope.innerText || "" : "";
-    } else if (text == null) {
-      text = pageText();
-    }
-
-    var era = normalizeEra(text);
-
-    // Find a team by checking the recognized names/abbreviations against the
-    // page text. Longer names first so "New Orleans Hornets" wins over a bare
-    // "Hornets" style partial.
-    var names = Object.keys(state.teamLookup).sort(function (a, b) {
-      return b.length - a.length;
-    });
+    if (text == null) text = pageText();
     var lower = text.toLowerCase();
-    var team = null;
-    for (var i = 0; i < names.length; i++) {
-      var name = names[i];
-      if (name.length < 3) continue;
-      if (lower.indexOf(name) !== -1) { team = state.teamLookup[name]; break; }
+    var eras = erasInText(text);
+
+    var best = { team: null, era: null, hits: 0 };
+    for (var e = 0; e < eras.length; e++) {
+      var pools = state.poolsByEra[eras[e]] || [];
+      for (var i = 0; i < pools.length; i++) {
+        var players = pools[i].players, hits = 0;
+        for (var j = 0; j < players.length; j++) {
+          var name = players[j]._lname;
+          if (name.length > 4 && lower.indexOf(name) !== -1) hits++;
+        }
+        if (hits > best.hits) {
+          best = { team: pools[i].team, era: eras[e], hits: hits };
+        }
+      }
     }
 
-    if (!team || !era) return null;
-    return { team: team, era: era };
+    if (!best.team || best.hits < MIN_POOL_HITS) return null;
+    return { team: best.team, era: best.era };
   }
 
   // ---- roster -----------------------------------------------------------
@@ -229,18 +224,6 @@
         "</b> &middot; <b>" + esc(roll.era) + "</b></div>";
 
       var pool = state.byTeamEra[roll.team + "|" + roll.era] || [];
-
-      if (!selectionActive(pool, text)) {
-        html += '<div class="dh-roll">Start screen — press <b>Spin</b> to begin. ' +
-          "Not counting this as a pick.</div>";
-        html += renderRoster();
-        body.innerHTML = html;
-        body.querySelectorAll(".dh-clear").forEach(function (el) {
-          el.addEventListener("click", function () { clearSlot(el.dataset.slot); });
-        });
-        return;
-      }
-
       var open = openPositions();
       var ranked = Solver.rankPool(pool, open, { mode: CONFIG.mode });
 
@@ -284,7 +267,7 @@
         }, 0);
       }
     } else {
-      html += '<div class="dh-roll">Waiting for a team/era roll…</div>';
+      html += '<div class="dh-roll">Waiting for a roll — press <b>Spin</b> to load a pool.</div>';
     }
 
     html += renderRoster();
@@ -360,12 +343,8 @@
     // actually changes, but always keep the roster summary current.
     clearTimeout(renderTimer);
     renderTimer = setTimeout(function () {
-      var text = pageText();
-      var roll = detectRoll(text);
-      var active = roll
-        ? selectionActive(state.byTeamEra[roll.team + "|" + roll.era] || [], text)
-        : false;
-      var key = (roll ? roll.team + "|" + roll.era : "none") + "|" + active;
+      var roll = detectRoll();
+      var key = roll ? roll.team + "|" + roll.era : "none";
       if (key !== state.lastRollKey) {
         state.lastRollKey = key;
         render();
