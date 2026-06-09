@@ -271,12 +271,15 @@
     }
 
     html += renderRoster();
-    body.innerHTML = html;
 
-    // roster controls
+    // Pause the observer while we mutate our own panel so it doesn't re-trigger
+    // detection on every redraw.
+    pauseObserver();
+    body.innerHTML = html;
     body.querySelectorAll(".dh-clear").forEach(function (el) {
       el.addEventListener("click", function () { clearSlot(el.dataset.slot); });
     });
+    resumeObserver();
   }
 
   function renderRoster() {
@@ -337,34 +340,42 @@
     }
   }
 
-  var renderTimer = null;
-  function scheduleRender() {
-    // Re-detect on a short debounce. Only redraw the pick list when the roll
-    // actually changes, but always keep the roster summary current.
-    clearTimeout(renderTimer);
-    renderTimer = setTimeout(function () {
-      var roll = detectRoll();
-      var key = roll ? roll.team + "|" + roll.era : "none";
-      if (key !== state.lastRollKey) {
-        state.lastRollKey = key;
-        render();
-      }
-    }, 150);
+  var observer = null;
+  var OBS_OPTS = { childList: true, subtree: true, characterData: true };
+
+  function pauseObserver() {
+    if (observer) observer.disconnect();
+  }
+  function resumeObserver() {
+    if (observer) observer.observe(document.body, OBS_OPTS);
   }
 
-  var observing = false;
+  var renderTimer = null;
+  function scheduleRender() {
+    // Detect on a debounce after DOM churn settles, and only redraw when the
+    // roll actually changes so the page isn't doing extra work mid-animation.
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(function () {
+      try {
+        var roll = detectRoll();
+        var key = roll ? roll.team + "|" + roll.era : "none";
+        if (key !== state.lastRollKey) {
+          state.lastRollKey = key;
+          render();
+        }
+      } catch (e) {
+        /* never let detection break the page */
+      }
+    }, 300);
+  }
+
   function start() {
     if (!panel) buildPanel();
     render();
 
-    if (observing) return;
-    observing = true;
-    var obs = new MutationObserver(scheduleRender);
-    obs.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
+    if (observer) return;
+    observer = new MutationObserver(scheduleRender);
+    resumeObserver();
   }
 
   function init() {

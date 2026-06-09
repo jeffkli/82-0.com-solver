@@ -11,6 +11,15 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
+  /* The panel is informational; let clicks pass through to the game except on
+     its own controls (re-enabled below), so it can never block page buttons. */
+  pointer-events: none;
+}
+
+#draft-helper-panel .dh-head,
+#draft-helper-panel button,
+#draft-helper-panel .dh-clear {
+  pointer-events: auto;
 }
 
 #draft-helper-panel .dh-head {
