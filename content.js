@@ -171,6 +171,13 @@
     return Solver.SLOTS.filter(function (s) { return !state.roster[s]; });
   }
 
+  // Keys of players already drafted, so they're never recommended again.
+  function pickedKeys() {
+    var set = {};
+    rosterArray().forEach(function (p) { set[Solver.playerKey(p)] = true; });
+    return set;
+  }
+
   function addToRoster(player, slot) {
     state.roster[slot] = player;
     render();
@@ -225,7 +232,10 @@
 
       var pool = state.byTeamEra[roll.team + "|" + roll.era] || [];
       var open = openPositions();
-      var ranked = Solver.rankPool(pool, open, { mode: CONFIG.mode });
+      var ranked = Solver.rankPool(pool, open, {
+        mode: CONFIG.mode,
+        exclude: pickedKeys()
+      });
 
       if (ranked.length === 0) {
         html += '<div class="dh-roll">No players in this pool fit an open slot.</div>';

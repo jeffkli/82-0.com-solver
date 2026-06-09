@@ -149,15 +149,29 @@ var Solver = (function () {
     return player.positions && player.positions.indexOf(slot) !== -1;
   }
 
+  // Stable identity for a player. The site data carries an `id`; fall back to
+  // name+team+era so the placeholder data works too.
+  function playerKey(p) {
+    return p.id || (p.player + "|" + p.team + "|" + p.era);
+  }
+
+  function rosterKeySet(roster) {
+    var set = {};
+    for (var i = 0; i < roster.length; i++) set[playerKey(roster[i])] = true;
+    return set;
+  }
+
   // Greedy: try every available player in every slot they qualify for and keep
   // whichever single addition leaves the roster with the highest OVR.
   function bestPick(roster, available, openPositions, opts) {
     opts = opts || {};
     var score = calc(opts.mode);
+    var taken = rosterKeySet(roster);
     var best = null;
 
     for (var i = 0; i < available.length; i++) {
       var p = available[i];
+      if (taken[playerKey(p)]) continue; // already on the roster
       for (var j = 0; j < openPositions.length; j++) {
         var slot = openPositions[j];
         if (!canFill(p, slot)) continue;
@@ -244,9 +258,11 @@ var Solver = (function () {
       return fillerCache[slot];
     }
 
+    var taken = rosterKeySet(roster);
     var best = null;
     for (var i = 0; i < available.length; i++) {
       var p = available[i];
+      if (taken[playerKey(p)]) continue; // already on the roster
       for (var j = 0; j < openPositions.length; j++) {
         var slot = openPositions[j];
         if (!canFill(p, slot)) continue;
@@ -272,10 +288,14 @@ var Solver = (function () {
   function rankPool(pool, openPositions, opts) {
     opts = opts || {};
     var mode = opts.mode;
+    var exclude = opts.exclude; // object/Set of player keys to skip
     var out = [];
 
     for (var i = 0; i < pool.length; i++) {
       var p = pool[i];
+      if (exclude && (exclude.has ? exclude.has(playerKey(p)) : exclude[playerKey(p)])) {
+        continue; // already drafted
+      }
       var slots = (p.positions || []).filter(function (s) {
         return !openPositions || openPositions.indexOf(s) !== -1;
       });
@@ -312,7 +332,8 @@ var Solver = (function () {
     standardContribution: standardContribution,
     bestPick: bestPick,
     expectedValuePick: expectedValuePick,
-    rankPool: rankPool
+    rankPool: rankPool,
+    playerKey: playerKey
   };
 })();
 

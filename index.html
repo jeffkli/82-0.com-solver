@@ -160,6 +160,12 @@
     return Solver.SLOTS.filter(function (s) { return !roster[s]; });
   }
 
+  function pickedKeys() {
+    var set = {};
+    rosterArray().forEach(function (p) { set[Solver.playerKey(p)] = true; });
+    return set;
+  }
+
   function scoreFn() {
     return mode === "adjusted" ? Solver.calculateAdjustedOvr : Solver.calculateTeamOvr;
   }
@@ -168,7 +174,7 @@
     var key = $team.value + "|" + $era.value;
     var pool = byTeamEra[key] || [];
     var open = openPositions();
-    var ranked = Solver.rankPool(pool, open, { mode: mode });
+    var ranked = Solver.rankPool(pool, open, { mode: mode, exclude: pickedKeys() });
     var base = rosterArray();
     var score = scoreFn();
 
