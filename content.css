@@ -2,127 +2,105 @@
   position: fixed;
   top: 16px;
   right: 16px;
-  width: 320px;
+  width: 390px;
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
   z-index: 2147483647;
   background: #14161c;
   color: #e8eaf0;
   border: 1px solid #2a2e3a;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
-  overflow: hidden;
-  /* The panel is informational; let clicks pass through to the game except on
-     its own controls (re-enabled below), so it can never block page buttons. */
+  border-radius: 11px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   pointer-events: none;
 }
-
 #draft-helper-panel .dh-head,
 #draft-helper-panel button,
-#draft-helper-panel .dh-clear {
-  pointer-events: auto;
-}
+#draft-helper-panel .dh-body { pointer-events: auto; }
 
 #draft-helper-panel .dh-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #1b1f29;
-  cursor: move;
-  user-select: none;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 12px; background:#1b1f29; cursor:move; user-select:none;
 }
-
-#draft-helper-panel .dh-title {
-  font-weight: 600;
-  letter-spacing: 0.3px;
+#draft-helper-panel .dh-title { font-weight:700; letter-spacing:.2px; }
+#draft-helper-panel .dh-min {
+  background:none; border:0; color:#8b91a3; cursor:pointer; font-size:16px;
 }
-
-#draft-helper-panel .dh-head button {
-  background: none;
-  border: none;
-  color: #8b91a3;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 6px;
+#draft-helper-panel .dh-body {
+  padding:12px; max-height:calc(100vh - 70px); overflow:auto;
 }
-
-#draft-helper-panel .dh-head button:hover { color: #fff; }
-
-#draft-helper-panel .dh-body { padding: 12px; }
-
-#draft-helper-panel.dh-collapsed .dh-body { display: none; }
-
-#draft-helper-panel .dh-roll {
-  font-size: 12px;
-  color: #9aa0b3;
-  margin-bottom: 10px;
+#draft-helper-panel .dh-roll { color:#a5abba; margin-bottom:4px; font-size:12px; }
+#draft-helper-panel .dh-roll b { color:#f2c14e; }
+#draft-helper-panel .dh-model {
+  color:#6fcf97; font-size:11px; margin-bottom:10px;
 }
-#draft-helper-panel .dh-roll b { color: #f2c14e; }
-
-#draft-helper-panel .dh-skip {
-  margin: 8px 0;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: #3a2417;
-  color: #f0a868;
-  font-size: 12px;
+#draft-helper-panel .dh-section-title {
+  margin:10px 0 5px; color:#9aa0b3; font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.5px;
 }
+#draft-helper-panel .dh-ai-status,
+#draft-helper-panel .dh-note,
+#draft-helper-panel .dh-error,
+#draft-helper-panel .dh-footnote {
+  font-size:11px; color:#8b91a3; margin:6px 0;
+}
+#draft-helper-panel .dh-error { color:#ef8c8c; }
+#draft-helper-panel .dh-footnote { border-top:1px solid #23262f; padding-top:6px; }
 
 #draft-helper-panel .dh-pick {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 0;
-  border-top: 1px solid #23262f;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:8px 0; border-top:1px solid #23262f;
+}
+#draft-helper-panel .dh-pick.dh-best {
+  background:rgba(111,207,151,.06);
+  margin:0 -6px; padding-left:6px; padding-right:6px; border-radius:6px;
+}
+#draft-helper-panel .dh-pick-main { min-width:0; flex:1; }
+#draft-helper-panel .dh-pick-side { text-align:right; flex:0 0 76px; }
+#draft-helper-panel .dh-name { font-weight:650; }
+#draft-helper-panel .dh-arrow { color:#f2c14e; font-weight:600; font-size:11px; }
+#draft-helper-panel .dh-meta { color:#8b91a3; font-size:10.5px; }
+#draft-helper-panel .dh-prob {
+  color:#6fcf97; font-size:16px; font-weight:750; font-variant-numeric:tabular-nums;
+}
+#draft-helper-panel .dh-prob-muted { color:#596071; }
+#draft-helper-panel .dh-add {
+  margin-top:4px; background:#2b5cff; color:white; border:0; border-radius:5px;
+  padding:3px 8px; cursor:pointer; font-size:10px;
+}
+#draft-helper-panel .dh-add:hover { background:#1f4ae0; }
+
+#draft-helper-panel .dh-badges { min-height:0; margin:2px 0; }
+#draft-helper-panel .dh-badge {
+  display:inline-block; margin:1px 4px 1px 0; padding:1px 5px; border-radius:999px;
+  background:#3a2d17; color:#f2c14e; font-size:9.5px; text-transform:uppercase;
 }
 
-#draft-helper-panel .dh-pick:first-child { border-top: none; }
-#draft-helper-panel .dh-pick .dh-name { font-weight: 600; }
-#draft-helper-panel .dh-pick .dh-meta { color: #8b91a3; font-size: 11px; }
-#draft-helper-panel .dh-pick .dh-num { text-align: right; }
-#draft-helper-panel .dh-pick .dh-num .dh-ovr { color: #6fcf97; font-weight: 600; }
-
-#draft-helper-panel .dh-pick button.dh-add {
-  background: #2b5cff;
-  border: none;
-  color: #fff;
-  border-radius: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
-  font-size: 11px;
+#draft-helper-panel .dh-skip-title { margin-top:12px; }
+#draft-helper-panel .dh-skip-row {
+  display:flex; justify-content:space-between; align-items:center;
+  border-top:1px solid #23262f; padding:7px 0;
 }
-#draft-helper-panel .dh-pick button.dh-add:hover { background: #1f4ae0; }
 
 #draft-helper-panel .dh-roster {
-  margin-top: 12px;
-  border-top: 1px solid #23262f;
-  padding-top: 8px;
+  margin-top:12px; border-top:1px solid #2a2e3a; padding-top:3px;
 }
-#draft-helper-panel .dh-roster h4 { margin: 0 0 6px; font-size: 11px; color: #9aa0b3; text-transform: uppercase; }
-#draft-helper-panel .dh-slot { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
-#draft-helper-panel .dh-slot .dh-empty { color: #555b6b; }
-#draft-helper-panel .dh-slot .dh-clear { cursor: pointer; color: #6b7186; }
-
+#draft-helper-panel .dh-slot {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:2px 0; font-size:11px;
+}
+#draft-helper-panel .dh-empty { color:#555b6b; }
+#draft-helper-panel .dh-clear {
+  background:none; border:0; color:#6b7186; cursor:pointer; font-size:13px;
+}
 #draft-helper-panel .dh-summary {
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
+  margin-top:7px; display:flex; justify-content:space-between; font-size:12px;
 }
-#draft-helper-panel .dh-summary .dh-grade { font-weight: 700; }
+#draft-helper-panel .dh-grade { font-weight:700; }
 
 #draft-helper-toggle {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 2147483647;
-  background: #2b5cff;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font: 12px -apple-system, "Segoe UI", Roboto, sans-serif;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  position:fixed; top:16px; right:16px; z-index:2147483647;
+  background:#2b5cff; color:#fff; border:0; border-radius:8px;
+  padding:6px 10px; font:12px -apple-system,"Segoe UI",Roboto,sans-serif;
+  cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.4);
 }

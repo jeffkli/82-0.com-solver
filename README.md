@@ -1,107 +1,139 @@
-# 82-0 Draft Helper
+# 82-0 AI Draft Helper
 
-A pick recommender for the NBA draft game at [82-0.com](https://www.82-0.com).
-You draft one player per position (PG, SG, SF, PF, C); each round rolls a random
-team + decade and you choose from that pool. The goal is to push the team's
-overall rating high enough to win all 82 games. This tool ranks the available
-players by how much they move that rating and keeps a running roster total.
+A local fork of [`suryavjay/82-0.com-solver`](https://github.com/suryavjay/82-0.com-solver)
+that adds projected **82-0 path probabilities** to the Chrome extension.
 
-It ships two ways: a Chrome extension that overlays recommendations directly on
-the game, and a standalone `index.html` page for planning rolls by hand.
+## What changed
 
-## Install (unpacked extension)
+- **Classic scoring only** for AI odds. The game-winning formula is evaluated exactly, including the
+  positive-only STL/BPG normalization.
+- Each legal **player + position** action is scored by:
+  - standalone Classic OVR contribution;
+  - exact marginal OVR to the current roster;
+  - projected probability that the remaining random team-era rolls admit an 82-0 completion.
+- The default decision model is **No skips**.
+- Optional **Compare skips** mode adds:
+  - `Team skip` projected odds;
+  - `Decade skip` projected odds.
+- The roll model enforces the observed rule that the same exact `team|era` cannot be an accepted roll
+  more than **twice** in a five-pick game.
+- The overlay automatically marks useful traps such as:
+  - **OVR #1 · PPG #N** when the best Classic player in a roll is not its top scorer;
+  - **low-PPG sleeper** for strong low-scoring contributors.
+- Full `players_flat.json` snapshot is bundled as an offline fallback; the extension still fetches the
+  current Firebase list at runtime.
 
-1. Clone or download this folder.
-2. Optional: paste your real player list into `data/players.js` (see format
-   below). The extension pulls the live list from Firebase at runtime, so this
-   only matters as an offline fallback and for the standalone page.
-3. Open `chrome://extensions`, turn on **Developer mode** (top right).
-4. Click **Load unpacked** and select this folder.
-5. Open [82-0.com](https://www.82-0.com) and play — a panel appears in the
-   top-right corner.
+## What the percentage means
 
-## Using the overlay
+`≈ 6.3% 82-0` means:
 
-- The panel reads the current team/era roll off the page and lists the top 3
-  picks for it, each showing the resulting team OVR and projected wins.
-- **Add** drops a pick into your roster; the summary at the bottom tracks total
-  OVR, projected wins, and the letter grade.
-- If even the best available player barely moves the needle, the panel suggests
-  using a skip.
-- Drag the header to move the panel; the **–** button hides it (a small button
-  brings it back).
+> Given this pick now, approximately 6.3% of sampled legal future roll sequences contain at least one
+> legal completion that reaches 82 wins.
 
-Roll detection is data-driven: it reads the decade from the page and then
-identifies the team by which team's player pool is actually on screen (the
-names match the bundled dataset exactly). It only shows picks once the real
-pool is rendered, so the pre-spin start screen is ignored. If detection ever
-misses, the `MIN_POOL_HITS` constant near the top of the detection code in
-`content.js` is the sensitivity knob.
+The future completion search is an **oracle-path / solvability estimate**: within each sampled future
+sequence, the solver optimizes the remaining player choices with knowledge of that sampled sequence.
+That is the same framing as the exhaustive “what fraction of five-roll sets are solvable?” analysis.
 
-## Popup settings
+It is therefore best interpreted as a **decision-ranking upper bound**, not a claim that a causal human
+who cannot see future rolls will literally win at that rate.
 
-Click the extension's toolbar icon for a small settings popup — no file edits
-needed:
+When only one future roll remains, the extension enumerates every legal next team-era exactly instead
+of Monte Carlo sampling.
 
-- **Scoring mode** — toggle between **Adjusted** (the default) and **Raw**
-  (standard). The overlay updates live.
-- **Skip threshold** — the score below which the panel recommends a skip.
-- **Reload player data** — forces a fresh pull from Firebase, refreshes the
-  cache, and tells any open game tab to re-read the list.
+## Skip-mode caveat
 
-Settings are stored in `chrome.storage.local`; the content script watches that
-key, so changes apply immediately without a reload.
+`Compare skips` answers a useful immediate question:
 
-## Standalone page
+- take Player A now, then assume no skips;
+- use the team skip **now**, then optimize the rerolled current pool and future rolls;
+- use the decade skip **now**, then optimize the rerolled current pool and future rolls.
 
-Open `index.html` in a browser (or serve the folder with any static server so
-the live data fetch isn't blocked). Pick a team and era from the dropdowns to
-see the ranked pool, and build a roster slot by slot to watch the totals.
+The v1 skip comparison does **not** recursively value saving the other skip for a later round. Since the
+default use case for this fork is no-skip play, the no-skip estimates are the primary model.
 
-## Standard vs Adjusted
+## Install
 
-- **Standard** — the team rating that actually decides the game. Each category
-  (points, rebounds, assists, steals, blocks) is summed across the roster,
-  divided by a fixed "perfect team" denominator, and blended with category
-  weights. Steals and blocks are averaged over the players who post them before
-  being scaled to a full lineup.
-- **Adjusted** (default) — an era-aware view that grades each player against the
-  baselines for their decade and the weights for their position, with a small
-  bonus for a set of legacy players. Match this to whichever mode the game is
-  set to; flip to Raw in the popup if you're playing standard.
+No npm/build step is required.
 
-## Player data format
+1. Download/unzip this folder.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the folder containing `manifest.json`.
+6. Open `https://www.82-0.com/`.
+7. The `82-0 AI Helper` panel appears in the top-right.
 
-`data/players.js` assigns an array to `self.PLAYERS`. To swap in the real list,
-copy the array out of your `players_flat.json` and paste it between the
-brackets, keeping the `self.PLAYERS =` prefix and trailing `;`. Each entry looks
-like:
+The helper roster is tracked independently from the game page. After you make a pick on 82-0.com,
+click **Add** on the same recommendation in the helper so the next-round probability is conditioned on
+your actual roster.
 
-```js
-{
-  "player": "Shaquille O'Neal",
-  "team": "LAL",
-  "era": "2000s",
-  "ppg": 27.0, "rpg": 12.0, "apg": 3.0, "spg": 0.5, "bpg": 2.5,
-  "positions": ["C"]
-}
-```
+## Settings
+
+Click the extension toolbar icon:
+
+- **No skips** — default; does not show or model team/decade skips.
+- **Compare skips** — shows immediate team/decade skip odds.
+- **Monte Carlo scenarios** — 50–1200. `200` is the default; the solver uses a small beam so the overlay stays responsive.
+- **Skip availability** — manually mark a skip used/unused in Compare-skips mode.
 
 ## Files
 
-| File | Purpose |
-| --- | --- |
-| `manifest.json` | Manifest V3 definition |
-| `solver-core.js` | Scoring formulas and the pick recommenders |
-| `content.js` | Reads the roll, renders the on-page panel |
-| `popup.html` / `popup.js` | Toolbar settings: mode, skip threshold, data reload |
-| `background.js` | Service worker; fetches and caches player data |
-| `index.html` | Standalone planner (loads `data/players.js` directly) |
-| `data/players.js` | Player list — standalone data + extension offline fallback |
+- `solver-core.js` — preserves the upstream Standard/Adjusted API and adds exact Classic AI helpers.
+- `probability-core.js` — Monte Carlo + beam-search solvability engine; runs behind the service worker.
+- `content.js` / `content.css` — live 82-0.com overlay.
+- `popup.html` / `popup.js` — AI settings.
+- `background.js` — upstream-style Firebase fetch/cache plus isolated AI solving.
+- `data/players.js` — bundled player snapshot.
+- `index.html` — preserved standalone upstream solver.
+- `tests/` — solver regression, probability, background integration, Chromium UI E2E, and true unpacked-extension E2E.
 
-## Notes
+## Reliability / regression design
 
-The standard scoring formula, weights, and win curve were reconstructed by
-reading the game's own client-side code. The adjusted-mode blend is a
-best-effort reconstruction and is kept separate from the standard path. No
-player data is bundled beyond a small sample — drop in the full list yourself.
+The AI layer is deliberately **non-fatal**. The original helper UI renders current-OVR recommendations first; probability solving happens through the extension service worker. If the service worker sleeps, crashes, or the AI solver throws, the panel stays mounted and switches to an **OVR-only fallback** instead of taking the extension down.
+
+The fork also preserves the upstream Standard/Adjusted solver functions (`calculateAdjustedOvr`, `playerOvr`, `rankPool`, `expectedValuePick`, etc.). AI-specific duplicate-human handling is exposed separately through `humanKey` so it does not silently redefine the upstream `playerKey` behavior.
+
+## Testing
+
+Run the portable regression suite:
+
+```bash
+./tests/run.sh
+```
+
+It checks the known 118.4-OVR 82-0 fixture, upstream solver API compatibility, the 10,626-player/180-pool probability engine, background message integration, and a Chromium user-flow test covering roll detection, Add/remove behavior, a second in-place roll, skip mode, and forced AI failure fallback.
+
+A stronger `tests/e2e_extension.py` test loads a temporary localhost-enabled copy as a **real unpacked MV3 extension** in Playwright Chromium and verifies the content-script/service-worker path. GitHub Actions installs Playwright Chromium and runs both E2E layers.
+
+## Model details
+
+Classic team OVR:
+
+```text
+100 * (
+  totalPPG / 133.4 * 0.46 +
+  totalRPG / 39.7  * 0.25 +
+  totalAPG / 29.3  * 0.18 +
+  adjustedSPG / 6.1 * 0.07 +
+  adjustedBPG / 3.2 * 0.04
+)
+```
+
+Defensive normalization:
+
+```text
+adjustedStat = sum(values > 0) * 5 / count(values > 0)
+```
+
+Wins:
+
+```text
+round(82 * min(OVR / 110, 1) ^ 1.15)
+```
+
+The displayed OVR required to round to 82 wins is `109.5`.
+
+## Attribution
+
+This fork keeps the basic extension architecture and live player-data source from
+`suryavjay/82-0.com-solver`. The probability engine and max-2 roll model were added for this fork.

@@ -1,7 +1,9 @@
-// Service worker. Its main job is pulling the player list from Firebase and
-// caching it so the content script doesn't have to deal with cross-origin
-// fetches itself. Falls back to the bundled placeholder if the network call
-// fails for any reason.
+// Service worker. Player loading is intentionally kept very close to the
+// upstream extension: fetch the live list, cache it, and fall back to the
+// bundled snapshot. AI solving also lives here so a solver failure can never
+// prevent the content-script UI from loading.
+
+importScripts("solver-core.js", "probability-core.js");
 
 const PLAYERS_URL =
   "https://firebasestorage.googleapis.com/v0/b/" +
@@ -11,6 +13,8 @@ const PLAYERS_URL =
 const CACHE_KEY = "players_cache";
 const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
 
+let engineData = null;
+
 async function loadFromNetwork() {
   const res = await fetch(PLAYERS_URL, { cache: "no-store" });
   if (!res.ok) throw new Error("players fetch failed: " + res.status);
@@ -18,11 +22,10 @@ async function loadFromNetwork() {
 }
 
 function loadBundled() {
-  // data/players.js sets self.PLAYERS when imported into the worker.
   try {
     importScripts(chrome.runtime.getURL("data/players.js"));
   } catch (e) {
-    // already imported, or unavailable
+    // Already imported, or unavailable. Preserve upstream fallback behavior.
   }
   return Array.isArray(self.PLAYERS) ? self.PLAYERS : [];
 }
@@ -41,16 +44,51 @@ async function getPlayers(forceRefresh) {
     await chrome.storage.local.set({ [CACHE_KEY]: { at: Date.now(), data } });
     return { players: data, source: "network" };
   } catch (err) {
-    const data = await loadBundled();
+    const data = loadBundled();
     return { players: data, source: "bundled", error: String(err) };
   }
 }
 
+function ensureEngine(players) {
+  // getPlayers normally returns the same cached array for the life of this
+  // service worker. Reinitialize only if the array object changes or reload is
+  // explicitly requested.
+  if (engineData !== players) {
+    ProbabilityEngine.init(players);
+    engineData = players;
+  }
+}
+
+async function solvePaths(request) {
+  const loaded = await getPlayers(false);
+  if (!loaded.players || !loaded.players.length) {
+    throw new Error("No player data available for AI solver.");
+  }
+  ensureEngine(loaded.players);
+  return ProbabilityEngine.solve(request || {});
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "GET_PLAYERS") {
-    getPlayers(msg.forceRefresh)
-      .then(sendResponse)
+    getPlayers(!!msg.forceRefresh)
+      .then((result) => {
+        if (msg.forceRefresh) engineData = null;
+        sendResponse(result);
+      })
       .catch((err) => sendResponse({ players: [], error: String(err) }));
-    return true; // keep the channel open for the async reply
+    return true;
+  }
+
+  if (msg && msg.type === "SOLVE_PATHS") {
+    // Compute away from the page. The content script already renders a normal
+    // OVR fallback, so errors here are non-fatal and are surfaced inline.
+    solvePaths(msg.request)
+      .then((result) => sendResponse({ result }))
+      .catch((err) => sendResponse({ error: String(err && err.stack ? err.stack : err) }));
+    return true;
   }
 });
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { getPlayers, ensureEngine, solvePaths };
+}

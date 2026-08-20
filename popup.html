@@ -4,69 +4,73 @@
 <meta charset="utf-8" />
 <style>
   :root {
-    --bg: #14161c;
-    --line: #2a2e3a;
-    --text: #e8eaf0;
-    --muted: #8b91a3;
-    --accent: #2b5cff;
-    --good: #6fcf97;
+    --bg:#14161c; --line:#2a2e3a; --text:#e8eaf0; --muted:#8b91a3;
+    --accent:#2b5cff; --good:#6fcf97;
   }
   body {
-    width: 240px;
-    margin: 0;
-    padding: 14px;
-    background: var(--bg);
-    color: var(--text);
-    font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+    width:280px; margin:0; padding:14px; background:var(--bg); color:var(--text);
+    font:13px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif;
   }
-  h1 { margin: 0 0 12px; font-size: 14px; letter-spacing: 0.3px; }
-  .group { margin-bottom: 14px; }
-  .label { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 6px; }
-  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-  .seg label { flex: 1; text-align: center; padding: 6px 0; cursor: pointer; color: var(--muted); }
-  .seg input { display: none; }
-  .seg input:checked + span { background: var(--accent); color: #fff; display: block; }
-  .seg span { display: block; padding: 6px 0; margin: -6px 0; }
-  .row { display: flex; align-items: center; gap: 8px; }
-  input[type="range"] { flex: 1; accent-color: var(--accent); }
-  .val { width: 30px; text-align: right; color: var(--good); font-variant-numeric: tabular-nums; }
+  h1 { margin:0 0 12px; font-size:14px; }
+  .group { margin-bottom:14px; }
+  .label { color:var(--muted); font-size:10px; text-transform:uppercase; margin-bottom:6px; letter-spacing:.4px; }
+  .seg { display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg label { flex:1; text-align:center; cursor:pointer; color:var(--muted); }
+  .seg input { display:none; }
+  .seg span { display:block; padding:7px 4px; }
+  .seg input:checked + span { background:var(--accent); color:#fff; }
+  .hint { color:var(--muted); font-size:10.5px; margin-top:5px; }
+  .row { display:flex; align-items:center; gap:8px; }
+  input[type="range"] { flex:1; accent-color:var(--accent); }
+  .val { width:42px; text-align:right; color:var(--good); font-variant-numeric:tabular-nums; }
+  .check { display:flex; gap:8px; align-items:center; margin:5px 0; color:var(--text); }
   button {
-    width: 100%;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 8px;
-    font-size: 13px;
-    cursor: pointer;
+    width:100%; background:var(--accent); color:#fff; border:0; border-radius:6px;
+    padding:8px; cursor:pointer; font-size:12px;
   }
-  button:hover { background: #1f4ae0; }
-  .status { margin-top: 8px; color: var(--muted); font-size: 11px; min-height: 14px; }
-  .hint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .status { margin-top:7px; min-height:14px; color:var(--muted); font-size:10.5px; }
+  .rule { border:1px solid var(--line); border-radius:6px; padding:7px 8px; color:var(--muted); font-size:10.5px; }
+  .rule b { color:var(--good); }
 </style>
 </head>
 <body>
-  <h1>82-0 Draft Helper</h1>
+  <h1>82-0 AI Draft Helper</h1>
 
   <div class="group">
-    <div class="label">Scoring mode</div>
+    <div class="label">Decision model</div>
     <div class="seg">
-      <label><input type="radio" name="mode" value="adjusted" /><span>Adjusted</span></label>
-      <label><input type="radio" name="mode" value="standard" /><span>Raw</span></label>
+      <label><input type="radio" name="strategyMode" value="no_skips" /><span>No skips</span></label>
+      <label><input type="radio" name="strategyMode" value="compare_skips" /><span>Compare skips</span></label>
+    </div>
+    <div class="hint">
+      No skips is the clean model. Compare skips adds “use it now” odds for team/decade rerolls.
     </div>
   </div>
 
+  <div class="group" id="skipOptions">
+    <div class="label">Skip availability</div>
+    <label class="check"><input type="checkbox" id="teamSkipAvailable" /> Team skip unused</label>
+    <label class="check"><input type="checkbox" id="decadeSkipAvailable" /> Decade skip unused</label>
+  </div>
+
   <div class="group">
-    <div class="label">Skip threshold</div>
+    <div class="label">Monte Carlo scenarios</div>
     <div class="row">
-      <input type="range" id="threshold" min="50" max="110" step="1" />
-      <span class="val" id="thresholdVal">85</span>
+      <input type="range" id="simulations" min="50" max="1200" step="50" />
+      <span class="val" id="simulationsVal">200</span>
     </div>
-    <div class="hint">Suggest a skip when the best pick scores below this.</div>
+    <div class="hint">Higher is steadier but slower. Late-game one-roll odds are exact.</div>
   </div>
 
   <div class="group">
-    <button id="reload">Reload player data</button>
+    <div class="rule">
+      Roll model: <b>max 2×</b> of the same exact team-era among accepted picks.
+      Classic scoring only.
+    </div>
+  </div>
+
+  <div class="group">
+    <button id="reload">Reload live player data</button>
     <div class="status" id="status"></div>
   </div>
 

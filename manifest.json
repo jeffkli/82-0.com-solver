@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "82-0 Draft Helper",
-  "version": "1.0.0",
-  "description": "Pick recommendations for the 82-0.com NBA draft game.",
-  "permissions": ["storage"],
+  "name": "82-0 Draft Helper \u2014 AI Path Odds",
+  "version": "1.1.1",
+  "description": "82-0.com helper with Classic scoring, sleeper flags, and projected 82-0 path probabilities.",
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.82-0.com/*",
     "https://82-0.com/*",
@@ -11,16 +13,24 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "82-0 Draft Helper"
+    "default_title": "82-0 AI Draft Helper"
   },
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.82-0.com/*", "https://82-0.com/*"],
-      "js": ["solver-core.js", "content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://www.82-0.com/*",
+        "https://82-0.com/*"
+      ],
+      "js": [
+        "solver-core.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_idle"
     }
   ]
