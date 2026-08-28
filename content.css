@@ -85,6 +85,14 @@
 #draft-helper-panel .dh-roster {
   margin-top:12px; border-top:1px solid #2a2e3a; padding-top:3px;
 }
+#draft-helper-panel .dh-roster-head {
+  display:flex; justify-content:space-between; align-items:center;
+}
+#draft-helper-panel .dh-clear-all {
+  background:none; border:1px solid #3a3f4d; color:#8b91a3; cursor:pointer;
+  font-size:10px; border-radius:5px; padding:2px 7px;
+}
+#draft-helper-panel .dh-clear-all:hover { color:#ef8c8c; border-color:#ef8c8c; }
 #draft-helper-panel .dh-slot {
   display:flex; justify-content:space-between; align-items:center;
   padding:2px 0; font-size:11px;

@@ -190,6 +190,13 @@
     render();
   }
 
+  function clearRoster() {
+    state.roster = Object.create(null);
+    state.solveKey = null;
+    state.solution = null;
+    render();
+  }
+
   // ---------- AI ----------
 
   function makeSolveKey(roll) {
@@ -482,7 +489,10 @@
         '</span><button class="dh-clear" data-slot="' + slot + '" title="Remove">×</button></div>';
     }).join("");
 
-    return '<div class="dh-roster"><div class="dh-section-title">Roster</div>' +
+    return '<div class="dh-roster"><div class="dh-roster-head">' +
+      '<div class="dh-section-title">Roster</div>' +
+      (filled.length ? '<button class="dh-clear-all" title="Remove all picks">Clear Roster</button>' : '') +
+      '</div>' +
       rows +
       '<div class="dh-summary"><span>OVR ' + ovr.toFixed(1) + ' · ' + wins +
       ' wins</span><span class="dh-grade">' + grade.grade + ' ' + grade.label +
@@ -506,6 +516,9 @@
     body.querySelectorAll(".dh-clear").forEach(function (btn) {
       btn.addEventListener("click", function () { clearSlot(btn.dataset.slot); });
     });
+
+    var clearAllBtn = body.querySelector(".dh-clear-all");
+    if (clearAllBtn) clearAllBtn.addEventListener("click", clearRoster);
   }
 
 
