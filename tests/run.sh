@@ -10,4 +10,5 @@ node --check popup.js
 node tests/test_solver_core.js
 node tests/test_probability_core.js
 node tests/test_background_integration.js
+node tests/test_first_pick_cache.js
 xvfb-run -a python tests/e2e_ui.py

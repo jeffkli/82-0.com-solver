@@ -59,13 +59,139 @@ function ensureEngine(players) {
   }
 }
 
-async function solvePaths(request) {
+// ---------- first-pick odds cache ----------
+//
+// An empty-roster, empty-history request (the very first roll of a draft) is
+// the most expensive one to solve (most future rounds, widest candidate set),
+// and it is also the one most likely to recur exactly - there are only 180
+// team-era pools, and the Monte Carlo sampling is already seeded
+// deterministically from (roster, currentRoll, history, settings), so the
+// same first-roll request always produces the same numbers. Caching it turns
+// "have I seen this opening roll before" into an instant lookup instead of a
+// full re-solve.
+//
+// Scoped deliberately narrow: only the empty-roster/empty-history case is
+// cached. Every other request depends on which specific players were already
+// picked, which explodes the key space for no real benefit (those states
+// rarely repeat across sessions the way an opening team/era roll does).
+//
+// Cached in two independent parts rather than one, because they don't vary
+// together: ProbabilityEngine.estimatePickActions (the expensive part - a
+// beam search per candidate action per Monte Carlo scenario) never reads
+// strategyMode/teamSkipAvailable/decadeSkipAvailable at all, so it is
+// identical across every skip-setting combination for the same roll. Only
+// estimateImmediateSkip (much cheaper - one reroll + one future sequence per
+// scenario, no per-action beam search) depends on which skip is being
+// evaluated. Keying everything together like a first version of this did
+// would multiply the expensive half by every skip-setting combination for no
+// reason - 180 team-era pools x up to ~4 skip-availability combinations.
+// Splitting keeps the expensive half at a flat ~180 entries.
+
+const FIRST_PICK_CACHE_KEY = "first_pick_odds_cache_v1";
+let firstPickCache = null; // in-memory mirror: { generation, picks: {}, skips: {} }
+
+function isFirstPick(request) {
+  return !!(
+    request && request.currentRoll &&
+    !(request.roster && request.roster.length) &&
+    !(request.history && request.history.length)
+  );
+}
+
+function firstPickPicksKey(request) {
+  const r = request.currentRoll;
+  // Normalized to the same defaults estimatePickActions applies internally,
+  // so an omitted field and its explicit default value share one cache entry.
+  const simulations = request.simulations || 600;
+  const beamWidth = request.beamWidth || 90;
+  const candidateLimit = request.candidateLimit || 14;
+  return [r.team, r.era, simulations, beamWidth, candidateLimit].join("|");
+}
+
+function firstPickSkipKey(request, kind) {
+  const r = request.currentRoll;
+  // Mirrors estimateImmediateSkip's own simulation-count formula. Not keyed
+  // by teamSkipAvailable/decadeSkipAvailable: those flags only gate whether
+  // solvePaths includes this skip in the response below, they don't change
+  // what estimateImmediateSkip actually computes for a given kind.
+  const simulations = Math.max(80, Math.floor((request.simulations || 600) * 0.55));
+  const beamWidth = request.beamWidth || 90;
+  return [r.team, r.era, simulations, beamWidth, kind].join("|");
+}
+
+async function getPlayersGeneration() {
+  // Ties cache validity to the same player-data snapshot getPlayers() already
+  // tracks, so a genuine data refresh invalidates stale first-pick odds
+  // without any extra bookkeeping.
+  const cached = await chrome.storage.local.get(CACHE_KEY);
+  const entry = cached[CACHE_KEY];
+  return entry ? entry.at : 0;
+}
+
+async function loadFirstPickCache() {
+  if (firstPickCache) return firstPickCache;
+  const stored = await chrome.storage.local.get(FIRST_PICK_CACHE_KEY);
+  firstPickCache = stored[FIRST_PICK_CACHE_KEY] || { generation: 0, picks: {}, skips: {} };
+  return firstPickCache;
+}
+
+function saveFirstPickCache() {
+  // Fire-and-forget: never make the caller wait on the write-through.
+  chrome.storage.local.set({ [FIRST_PICK_CACHE_KEY]: firstPickCache }).catch(() => {});
+}
+
+async function solvePaths(rawRequest) {
   const loaded = await getPlayers(false);
   if (!loaded.players || !loaded.players.length) {
     throw new Error("No player data available for AI solver.");
   }
   ensureEngine(loaded.players);
-  return ProbabilityEngine.solve(request || {});
+  const request = rawRequest || {};
+
+  if (!isFirstPick(request)) return ProbabilityEngine.solve(request);
+
+  const generation = await getPlayersGeneration();
+  const cache = await loadFirstPickCache();
+  if (cache.generation !== generation) {
+    cache.generation = generation;
+    cache.picks = {};
+    cache.skips = {};
+  }
+
+  const pk = firstPickPicksKey(request);
+  let picks = cache.picks[pk];
+  if (!picks) {
+    picks = ProbabilityEngine.estimatePickActions(request);
+    cache.picks[pk] = picks;
+  }
+
+  const skips = [];
+  if (request.strategyMode === "compare_skips") {
+    ["team", "decade"].forEach(function (kind) {
+      const availabilityFlag = kind === "team" ? "teamSkipAvailable" : "decadeSkipAvailable";
+      if (request[availabilityFlag] === false) return;
+
+      const sk = firstPickSkipKey(request, kind);
+      let s = cache.skips[sk];
+      if (!s) {
+        s = ProbabilityEngine.estimateImmediateSkip(request, kind);
+        if (s) cache.skips[sk] = s;
+      }
+      if (s) skips.push(s);
+    });
+    skips.sort(function (a, b) { return b.probability - a.probability; });
+  }
+
+  saveFirstPickCache();
+
+  return {
+    actions: picks.actions,
+    skips: skips,
+    scenarios: picks.scenarios,
+    exact: picks.exact,
+    model: "oracle_path",
+    maxRepeat: 2
+  };
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -90,5 +216,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { getPlayers, ensureEngine, solvePaths };
+  module.exports = {
+    getPlayers, ensureEngine, solvePaths,
+    isFirstPick, firstPickPicksKey, firstPickSkipKey
+  };
 }

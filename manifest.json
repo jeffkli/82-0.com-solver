@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "82-0 Draft Helper \u2014 AI Path Odds",
-  "version": "1.1.2",
+  "version": "1.1.4",
   "description": "82-0.com helper with Classic scoring, sleeper flags, and projected 82-0 path probabilities.",
   "permissions": [
     "storage"

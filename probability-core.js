@@ -427,6 +427,14 @@ var ProbabilityEngine = (function () {
   return {
     init: init,
     solve: solve,
+    // Exposed (alongside solve) so a caller can cache the player-pick
+    // estimate and the skip estimate independently: estimatePickActions does
+    // not read strategyMode/teamSkipAvailable/decadeSkipAvailable at all, so
+    // it is identical across every skip-setting combination for the same
+    // roll/roster/history/quality tier - only estimateImmediateSkip actually
+    // depends on those flags.
+    estimatePickActions: estimatePickActions,
+    estimateImmediateSkip: estimateImmediateSkip,
     bestCompletionScore: bestCompletionScore,
     getStats: function () { return { players: players.length, pools: poolKeys.length }; }
   };
